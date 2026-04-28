@@ -1,32 +1,33 @@
-# URL Shortener
+# Go Modular CRUD Template
 
-URL shortener API built with Go, featuring a **modular architecture** and **Go generics** for zero-boilerplate CRUD.
+Template project Go dengan **modular architecture**, **Go generics** untuk CRUD tanpa boilerplate, dan **JWT authentication & authorization**.
 
 ## Tech Stack
 
 - **[Gin](https://github.com/gin-gonic/gin)** — HTTP framework
 - **[GORM](https://gorm.io)** — ORM (PostgreSQL)
 - **[go-redis](https://github.com/redis/go-redis)** — Redis client
+- **[golang-jwt](https://github.com/golang-jwt/jwt)** — JWT authentication
+- **[bcrypt](https://pkg.go.dev/golang.org/x/crypto/bcrypt)** — Password hashing
 - **Go Generics** — Reusable base layers
 
 ## Project Structure
 
 ```
-url-short/
+project/
 ├── cmd/
 │   └── main.go                        # Entry point
-├── config.yml                         # App configuration (gitignored)
-├── examole.config.yml                 # Example config
-├── modules/                           # Feature modules
-│   ├── url/                           # URL module (CRUD + custom)
-│   │   ├── model.go
-│   │   ├── repository.go
-│   │   ├── service.go
-│   │   └── router.go
-│   └── tag/                           # Tag module (pure CRUD)
-│       ├── model.go
-│       └── module.go
-├── pkg/                               # Shared packages
+├── config.yml                         # App config (gitignored)
+├── example.config.yml                 # Example config
+├── modules/
+│   └── auth/                          # Auth module (built-in)
+│       ├── model.go                   # User model + DTOs
+│       ├── service.go                 # Register, Login, Profile
+│       └── module.go                  # Routes + wiring
+├── pkg/
+│   ├── auth/
+│   │   ├── base_jwt.go               # JWT generation & validation
+│   │   └── base_middleware.go         # Auth & role middleware
 │   ├── config/                        # YAML config loader
 │   ├── database/                      # PostgreSQL & Redis init
 │   ├── model/
@@ -38,7 +39,7 @@ url-short/
 │   ├── handler/
 │   │   └── base_handler.go           # Generic CRUD HTTP handler
 │   ├── response/
-│   │   └── base_response.go          # Standardized API response
+│   │   └── base_response.go          # Standardized JSON response
 │   ├── router/
 │   │   └── base_router.go            # Module interface
 │   └── server/
@@ -57,115 +58,245 @@ url-short/
 
 ### Setup
 
-1. Clone the repo:
+1. Clone template:
 
 ```bash
-git clone https://github.com/dimas292/url_shortener.git
-cd url_shortener
+git clone https://github.com/dimas292/url_shortener.git -b template my-project
+cd my-project
 ```
 
-2. Copy and edit the config:
+2. Ganti module name di `go.mod`:
+
+```
+module github.com/username/my-project
+```
+
+3. Find & replace semua import path:
 
 ```bash
-cp examole.config.yml config.yml
+grep -rl "github.com/dimas292/url_shortener" . --include="*.go" | xargs sed -i '' 's|github.com/dimas292/url_shortener|github.com/username/my-project|g'
+```
+
+4. Copy dan edit config:
+
+```bash
+cp example.config.yml config.yml
 ```
 
 ```yaml
 app:
-  name: urlshort
+  name: myapp
   port: ":4444"
+  jwt:
+    secret: "ganti-dengan-secret-key-yang-kuat"
+    expiration: 24  # jam
   db:
     postgres:
       dbhost: localhost
       dbuser: postgres
       dbpassword: postgres
-      dbname: postgres
+      dbname: myapp
     redis:
       host: localhost
       port: 6379
 ```
 
-3. Install dependencies and run:
+5. Run:
 
 ```bash
 go mod tidy
 go run cmd/main.go
 ```
 
-Server runs at `http://localhost:4444`.
-
 ---
 
-## Architecture Guide
+## Authentication & Authorization
 
-### Base Layers (Generics)
+### Built-in Auth Endpoints
 
-Setiap layer menggunakan Go generics dengan pattern **pointer-element constraint**:
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/v1/auth/register` | - | Register user baru |
+| `POST` | `/api/v1/auth/login` | - | Login, dapat JWT token |
+| `GET` | `/api/v1/auth/profile` | Bearer | Get profile user saat ini |
 
+### Register
+
+```bash
+curl -X POST http://localhost:4444/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name": "John", "email": "john@example.com", "password": "secret123"}'
 ```
-model.BaseModel  →  repository.BaseRepository  →  service.BaseService  →  handler.BaseHandler
-```
 
-| Package | File | Fungsi |
-|---|---|---|
-| `pkg/model` | `base_model.go` | BaseModel (ID, timestamps, soft-delete), `Model` interface, `ModelPtr` constraint |
-| `pkg/repository` | `base_repository.go` | Generic CRUD: `Create`, `FindByID`, `FindAll` (paginated), `Update`, `Delete` |
-| `pkg/service` | `base_service.go` | Business logic layer, delegates ke repository |
-| `pkg/handler` | `base_handler.go` | HTTP handler CRUD + `RegisterCRUD()` untuk register 5 routes sekaligus |
-| `pkg/response` | `base_response.go` | Standardized JSON response + pagination |
-| `pkg/router` | `base_router.go` | `Module` interface: `RegisterRoutes(rg *gin.RouterGroup)` |
-
----
-
-## Cara Menambahkan Module Baru
-
-### Skenario 1: Pure CRUD (tanpa custom logic)
-
-Cukup **2 file**. Contoh: module `Tag`.
-
-#### 1. Buat model (`modules/tag/model.go`)
-
-```go
-package tag
-
-import "github.com/dimas292/url_shortener/pkg/model"
-
-type Tag struct {
-    model.BaseModel
-    Name  string `json:"name" gorm:"uniqueIndex" binding:"required"`
-    Color string `json:"color" gorm:"default:'#000000'"`
+Response:
+```json
+{
+  "status": 201,
+  "message": "registered successfully",
+  "data": {
+    "user": {
+      "id": 1,
+      "name": "John",
+      "email": "john@example.com",
+      "role": "user"
+    },
+    "token": "eyJhbGciOiJIUzI1NiIs..."
+  }
 }
 ```
 
-#### 2. Buat module (`modules/tag/module.go`)
+### Login
+
+```bash
+curl -X POST http://localhost:4444/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "john@example.com", "password": "secret123"}'
+```
+
+### Menggunakan Token
+
+Tambahkan header `Authorization: Bearer <token>` di setiap request ke endpoint yang dilindungi:
+
+```bash
+curl http://localhost:4444/api/v1/auth/profile \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+### Melindungi Routes di Module Lain
+
+#### Semua routes butuh login (authentication)
 
 ```go
-package tag
+func (m *ProductModule) RegisterRoutes(rg *gin.RouterGroup) {
+    products := rg.Group("/products")
+    products.Use(auth.AuthMiddleware(m.jwtService))  // semua route dilindungi
+    {
+        m.crud.RegisterCRUD(products)
+    }
+}
+```
+
+#### Sebagian route public, sebagian protected
+
+```go
+func (m *ProductModule) RegisterRoutes(rg *gin.RouterGroup) {
+    products := rg.Group("/products")
+
+    // Public
+    products.GET("", m.crud.FindAll)
+    products.GET("/:id", m.crud.FindByID)
+
+    // Protected (butuh login)
+    protected := products.Group("")
+    protected.Use(auth.AuthMiddleware(m.jwtService))
+    {
+        protected.POST("", m.crud.Create)
+        protected.PUT("/:id", m.crud.Update)
+        protected.DELETE("/:id", m.crud.Delete)
+    }
+}
+```
+
+#### Role-based authorization
+
+```go
+func (m *AdminModule) RegisterRoutes(rg *gin.RouterGroup) {
+    admin := rg.Group("/admin")
+    admin.Use(auth.AuthMiddleware(m.jwtService))       // harus login
+    admin.Use(auth.RoleMiddleware("admin"))             // harus role admin
+    {
+        // hanya user dengan role "admin" yang bisa akses
+        admin.GET("/dashboard", m.handleDashboard)
+    }
+}
+```
+
+#### Multiple roles
+
+```go
+// user ATAU admin bisa akses
+rg.Use(auth.RoleMiddleware("admin", "user"))
+
+// hanya admin dan moderator
+rg.Use(auth.RoleMiddleware("admin", "moderator"))
+```
+
+### Helper Functions
+
+Ambil info user dari gin context di handler manapun (setelah AuthMiddleware):
+
+```go
+func (m *MyModule) handleSomething(c *gin.Context) {
+    userID := auth.GetUserID(c)   // uint
+    email  := auth.GetEmail(c)    // string
+    role   := auth.GetRole(c)     // string
+}
+```
+
+### JWT Claims
+
+Token berisi informasi berikut:
+
+| Field | Type | Description |
+|---|---|---|
+| `user_id` | uint | ID user |
+| `email` | string | Email user |
+| `role` | string | Role user (default: "user") |
+| `exp` | timestamp | Token expiration |
+| `iat` | timestamp | Token issued at |
+
+---
+
+## Cara Menambahkan Module
+
+### Skenario 1: Pure CRUD (tanpa custom logic)
+
+Cukup **2 file**, langsung dapat 5 endpoint CRUD.
+
+#### 1. Buat model — `modules/product/model.go`
+
+```go
+package product
+
+import "github.com/username/my-project/pkg/model"
+
+type Product struct {
+    model.BaseModel
+    Name  string  `json:"name" gorm:"not null" binding:"required"`
+    Price float64 `json:"price" gorm:"not null" binding:"required,min=0"`
+    Stock int     `json:"stock" gorm:"default:0"`
+}
+```
+
+#### 2. Buat module — `modules/product/module.go`
+
+```go
+package product
 
 import (
-    "github.com/dimas292/url_shortener/pkg/handler"
-    "github.com/dimas292/url_shortener/pkg/repository"
-    "github.com/dimas292/url_shortener/pkg/service"
+    "github.com/username/my-project/pkg/handler"
+    "github.com/username/my-project/pkg/repository"
+    "github.com/username/my-project/pkg/service"
     "github.com/gin-gonic/gin"
     "gorm.io/gorm"
 )
 
-type TagModule struct {
-    handler *handler.BaseHandler[Tag, *Tag]
+type ProductModule struct {
+    handler *handler.BaseHandler[Product, *Product]
 }
 
-func NewTagModule(db *gorm.DB) *TagModule {
-    db.AutoMigrate(&Tag{})
+func NewProductModule(db *gorm.DB) *ProductModule {
+    db.AutoMigrate(&Product{})
 
-    repo := repository.NewBaseRepository[Tag, *Tag](db)
-    svc := service.NewBaseService[Tag, *Tag](repo)
-    h := handler.NewBaseHandler[Tag, *Tag](svc)
+    repo := repository.NewBaseRepository[Product, *Product](db)
+    svc := service.NewBaseService[Product, *Product](repo)
+    h := handler.NewBaseHandler[Product, *Product](svc)
 
-    return &TagModule{handler: h}
+    return &ProductModule{handler: h}
 }
 
-func (m *TagModule) RegisterRoutes(rg *gin.RouterGroup) {
-    m.handler.RegisterCRUD(rg.Group("/tags"))
+func (m *ProductModule) RegisterRoutes(rg *gin.RouterGroup) {
+    m.handler.RegisterCRUD(rg.Group("/products"))
 }
 ```
 
@@ -173,141 +304,92 @@ func (m *TagModule) RegisterRoutes(rg *gin.RouterGroup) {
 
 ```go
 srv.RegisterModules(
-    tagmodule.NewTagModule(srv.DB),
+    authmodule.NewAuthModule(srv.DB, srv.JWT),
+    productmodule.NewProductModule(srv.DB),
 )
 ```
 
 **Selesai!** Otomatis dapat:
 
-| Method | Endpoint | Fungsi |
-|---|---|---|
-| `POST` | `/api/v1/tags` | Create |
-| `GET` | `/api/v1/tags` | List (paginated) |
-| `GET` | `/api/v1/tags/:id` | Get by ID |
-| `PUT` | `/api/v1/tags/:id` | Update |
-| `DELETE` | `/api/v1/tags/:id` | Soft delete |
+| Method | Endpoint |
+|---|---|
+| `POST` | `/api/v1/products` |
+| `GET` | `/api/v1/products` |
+| `GET` | `/api/v1/products/:id` |
+| `PUT` | `/api/v1/products/:id` |
+| `DELETE` | `/api/v1/products/:id` |
 
 ---
 
-### Skenario 2: CRUD + Custom Logic
+### Skenario 2: CRUD + Auth + Custom Logic
 
-Ketika butuh endpoint atau logic tambahan. Contoh: module `URL` punya `Shorten` dan `Resolve`.
-
-#### 1. Buat model + DTO (`modules/url/model.go`)
+#### 1. Model + DTO
 
 ```go
-package url
-
-import "github.com/dimas292/url_shortener/pkg/model"
-
-type URL struct {
+type Product struct {
     model.BaseModel
-    OriginalURL string `json:"original_url" gorm:"type:text;not null" binding:"required,url"`
-    ShortCode   string `json:"short_code" gorm:"type:varchar(10);uniqueIndex;not null"`
-    Clicks      int64  `json:"clicks" gorm:"default:0"`
-}
-
-type CreateURLRequest struct {
-    OriginalURL string `json:"original_url" binding:"required,url"`
+    Name     string  `json:"name" binding:"required"`
+    Price    float64 `json:"price" binding:"required"`
+    Category string  `json:"category"`
 }
 ```
 
-#### 2. Extend repository — tambah custom query (`modules/url/repository.go`)
+#### 2. Custom Repository
 
 ```go
-package url
-
-import (
-    "github.com/dimas292/url_shortener/pkg/repository"
-    "gorm.io/gorm"
-)
-
-type URLRepository struct {
-    *repository.BaseRepository[URL, *URL]
+type ProductRepository struct {
+    *repository.BaseRepository[Product, *Product]
 }
 
-// Custom query — tidak ada di BaseRepository
-func (r *URLRepository) FindByShortCode(code string) (*URL, error) {
-    var url URL
-    err := r.DB.Where("short_code = ?", code).First(&url).Error
-    return &url, err
-}
-
-func (r *URLRepository) IncrementClicks(id uint) error {
-    return r.DB.Model(&URL{}).Where("id = ?", id).
-        UpdateColumn("clicks", gorm.Expr("clicks + 1")).Error
+func (r *ProductRepository) FindByCategory(category string) ([]Product, error) {
+    var products []Product
+    err := r.DB.Where("category = ?", category).Find(&products).Error
+    return products, err
 }
 ```
 
-#### 3. Extend service — tambah business logic (`modules/url/service.go`)
+#### 3. Custom Service
 
 ```go
-package url
-
-import "github.com/dimas292/url_shortener/pkg/service"
-
-type URLService struct {
-    *service.BaseService[URL, *URL]
-    repo *URLRepository
+type ProductService struct {
+    *service.BaseService[Product, *Product]
+    repo *ProductRepository
 }
 
-func NewURLService(repo *URLRepository) *URLService {
-    return &URLService{
-        BaseService: service.NewBaseService[URL, *URL](repo.BaseRepository),
-        repo:        repo,
+func (s *ProductService) GetByCategory(category string) ([]Product, error) {
+    return s.repo.FindByCategory(category)
+}
+```
+
+#### 4. Module dengan Auth
+
+```go
+type ProductModule struct {
+    crud       *handler.BaseHandler[Product, *Product]
+    service    *ProductService
+    jwtService *pkgauth.JWTService
+}
+
+func NewProductModule(db *gorm.DB, jwt *pkgauth.JWTService) *ProductModule {
+    // ... wire dependencies
+    return &ProductModule{crud: h, service: svc, jwtService: jwt}
+}
+
+func (m *ProductModule) RegisterRoutes(rg *gin.RouterGroup) {
+    products := rg.Group("/products")
+
+    // Public: siapa saja bisa lihat
+    products.GET("", m.crud.FindAll)
+    products.GET("/:id", m.crud.FindByID)
+
+    // Protected: harus login
+    protected := products.Group("")
+    protected.Use(pkgauth.AuthMiddleware(m.jwtService))
+    {
+        protected.POST("", m.crud.Create)
+        protected.PUT("/:id", m.crud.Update)
+        protected.DELETE("/:id", m.crud.Delete)
     }
-}
-
-// Custom business logic
-func (s *URLService) Shorten(originalURL string) (*URL, error) {
-    // generate short code, create URL...
-}
-
-func (s *URLService) Resolve(code string) (*URL, error) {
-    // find by code, increment clicks...
-}
-```
-
-#### 4. Buat module — gabungkan generic CRUD + custom endpoint (`modules/url/router.go`)
-
-```go
-package url
-
-import (
-    "github.com/dimas292/url_shortener/pkg/handler"
-    "github.com/dimas292/url_shortener/pkg/repository"
-    "github.com/dimas292/url_shortener/pkg/service"
-    "github.com/gin-gonic/gin"
-    "gorm.io/gorm"
-)
-
-type URLModule struct {
-    crud    *handler.BaseHandler[URL, *URL]
-    service *URLService
-}
-
-func NewURLModule(db *gorm.DB) *URLModule {
-    db.AutoMigrate(&URL{})
-
-    // Generic CRUD
-    repo := repository.NewBaseRepository[URL, *URL](db)
-    svc := service.NewBaseService[URL, *URL](repo)
-    crudHandler := handler.NewBaseHandler[URL, *URL](svc)
-
-    // Custom layers
-    urlRepo := &URLRepository{BaseRepository: repo}
-    urlService := NewURLService(urlRepo)
-
-    return &URLModule{crud: crudHandler, service: urlService}
-}
-
-func (m *URLModule) RegisterRoutes(rg *gin.RouterGroup) {
-    // Generic CRUD
-    m.crud.RegisterCRUD(rg.Group("/urls"))
-
-    // Custom endpoints
-    rg.POST("/shorten", m.handleShorten)
-    rg.GET("/r/:code", m.handleResolve)
 }
 ```
 
@@ -315,9 +397,7 @@ func (m *URLModule) RegisterRoutes(rg *gin.RouterGroup) {
 
 ## API Response Format
 
-Semua endpoint menggunakan format response yang sama:
-
-### Success Response
+### Success
 
 ```json
 {
@@ -327,17 +407,7 @@ Semua endpoint menggunakan format response yang sama:
 }
 ```
 
-### Created Response
-
-```json
-{
-  "status": 201,
-  "message": "created successfully",
-  "data": { ... }
-}
-```
-
-### Paginated Response
+### Paginated
 
 ```json
 {
@@ -353,64 +423,43 @@ Semua endpoint menggunakan format response yang sama:
 }
 ```
 
-### Error Response
+### Error
 
 ```json
 {
-  "status": 404,
-  "message": "not found"
+  "status": 401,
+  "message": "invalid token"
 }
 ```
 
-### Pagination Query Parameters
+### Pagination Parameters
 
-| Parameter | Default | Min | Max | Description |
-|---|---|---|---|---|
-| `page` | 1 | 1 | - | Halaman |
-| `per_page` | 10 | 1 | 100 | Jumlah data per halaman |
-
-Contoh: `GET /api/v1/tags?page=2&per_page=20`
-
----
-
-## API Endpoints
-
-### URL Module
-
-| Method | Endpoint | Description |
+| Parameter | Default | Range |
 |---|---|---|
-| `POST` | `/api/v1/urls` | Create URL (generic CRUD) |
-| `GET` | `/api/v1/urls` | List URLs (paginated) |
-| `GET` | `/api/v1/urls/:id` | Get URL by ID |
-| `PUT` | `/api/v1/urls/:id` | Update URL |
-| `DELETE` | `/api/v1/urls/:id` | Soft delete URL |
-| `POST` | `/api/v1/shorten` | Shorten URL (custom) |
-| `GET` | `/api/v1/r/:code` | Redirect to original URL (custom) |
+| `page` | 1 | min: 1 |
+| `per_page` | 10 | 1–100 |
 
-### Tag Module
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/v1/tags` | Create tag |
-| `GET` | `/api/v1/tags` | List tags (paginated) |
-| `GET` | `/api/v1/tags/:id` | Get tag by ID |
-| `PUT` | `/api/v1/tags/:id` | Update tag |
-| `DELETE` | `/api/v1/tags/:id` | Soft delete tag |
+Contoh: `GET /api/v1/products?page=2&per_page=20`
 
 ---
 
 ## Quick Reference
 
 ```
-Tambah module pure CRUD:
-  1. modules/<name>/model.go     → define struct (embed model.BaseModel)
-  2. modules/<name>/module.go    → wire repo → service → handler, RegisterRoutes
+Pure CRUD (2 file):
+  1. modules/<name>/model.go     → struct (embed model.BaseModel)
+  2. modules/<name>/module.go    → wire repo → service → handler
   3. cmd/main.go                 → srv.RegisterModules(...)
 
-Tambah module dengan custom logic:
-  1. modules/<name>/model.go     → define struct + DTOs
-  2. modules/<name>/repository.go → extend BaseRepository (custom queries)
-  3. modules/<name>/service.go    → extend BaseService (business logic)
-  4. modules/<name>/router.go     → BaseHandler CRUD + custom handlers
+CRUD + Auth (3 file):
+  1. modules/<name>/model.go     → struct
+  2. modules/<name>/module.go    → wire + auth middleware
+  3. cmd/main.go                 → NewModule(srv.DB, srv.JWT)
+
+CRUD + Auth + Custom (4+ file):
+  1. modules/<name>/model.go      → struct + DTOs
+  2. modules/<name>/repository.go → embed BaseRepository + custom queries
+  3. modules/<name>/service.go    → embed BaseService + business logic
+  4. modules/<name>/module.go     → BaseHandler CRUD + custom handlers + auth
   5. cmd/main.go                  → srv.RegisterModules(...)
 ```
