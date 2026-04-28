@@ -7,6 +7,7 @@ import (
 	pkgauth "github.com/dimas292/url_shortener/pkg/auth"
 	"github.com/dimas292/url_shortener/pkg/response"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -17,11 +18,11 @@ type AuthModule struct {
 }
 
 // NewAuthModule wires up the auth module's dependencies.
-func NewAuthModule(db *gorm.DB, jwtService *pkgauth.JWTService) *AuthModule {
+func NewAuthModule(db *gorm.DB, rdb *redis.Client, jwtService *pkgauth.JWTService) *AuthModule {
 	// Auto-migrate
 	db.AutoMigrate(&User{})
 
-	service := NewAuthService(db, jwtService)
+	service := NewAuthService(db, rdb, jwtService)
 
 	return &AuthModule{
 		service:    service,

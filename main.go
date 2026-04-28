@@ -11,7 +11,7 @@ func main() {
 
 	// Register feature modules
 	srv.RegisterModules(
-		authmodule.NewAuthModule(srv.DB, srv.JWT),
+		authmodule.NewAuthModule(srv.DB, srv.Redis, srv.JWT),
 		// yourmodule.NewYourModule(srv.DB),
 	)
 

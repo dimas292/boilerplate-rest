@@ -1,10 +1,14 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log"
+	"time"
 
 	pkgauth "github.com/dimas292/url_shortener/pkg/auth"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -18,12 +22,13 @@ var (
 // AuthService handles authentication business logic.
 type AuthService struct {
 	db  *gorm.DB
+	rdb *redis.Client
 	jwt *pkgauth.JWTService
 }
 
 // NewAuthService creates a new AuthService.
-func NewAuthService(db *gorm.DB, jwt *pkgauth.JWTService) *AuthService {
-	return &AuthService{db: db, jwt: jwt}
+func NewAuthService(db *gorm.DB, rdb *redis.Client, jwt *pkgauth.JWTService) *AuthService {
+	return &AuthService{db: db, rdb: rdb, jwt: jwt}
 }
 
 // Register creates a new user with hashed password.
@@ -93,11 +98,53 @@ func (s *AuthService) Login(req LoginRequest) (*AuthResponse, error) {
 
 // GetProfile retrieves the current user's profile.
 func (s *AuthService) GetProfile(userID string) (*UserResponse, error) {
-	var user User
-	if err := s.db.First(&user, "id = ?", userID).Error; err != nil {
-		return nil, ErrUserNotFound
-	}
+    prefixUser := "cache:user:"
+    keyUser := prefixUser + userID
 
-	resp := user.ToResponse()
-	return &resp, nil
+    // Cek Redis dulu (pakai HGetAll karena simpannya Hash)
+    cachedData, err := s.rdb.HGetAll(context.Background(), keyUser).Result()
+    if err == nil && len(cachedData) > 0 {
+        // Cache HIT — return dari Redis
+        return &UserResponse{
+            ID:    fmt.Sprintf("%v", cachedData["id"]),
+            Name:  cachedData["name"],
+            Email: cachedData["email"],
+            Role:  cachedData["role"],
+        }, nil
+    }
+ 
+    if err != nil && err != redis.Nil {
+        // Redis error (down/timeout) → log tapi tetap lanjut ke DB
+        log.Printf("warning: redis get profile error: %v", err)
+    }
+
+    // Cache MISS → query DB
+    var user User
+    if err := s.db.First(&user, "id = ?", userID).Error; err != nil {
+        return nil, ErrUserNotFound
+    }
+
+    // Simpan ke Redis
+    userMap := map[string]interface{}{
+        "id":    user.ID,
+        "name":  user.Name,
+        "email": user.Email,
+        "role":  user.Role,
+    }
+
+    if err := s.rdb.HSet(context.Background(), keyUser, userMap).Err(); err != nil {
+        // return error, tetap return data dari DB
+        log.Printf("warning: redis set profile error: %v", err)
+    } else {
+        // Set TTL hanya kalau HSet berhasil
+        s.rdb.Expire(context.Background(), keyUser, 30*time.Minute)
+    }
+
+    // Return data dari DB
+    return &UserResponse{
+        ID:    fmt.Sprintf("%v", user.ID),
+        Name:  user.Name,
+        Email: user.Email,
+        Role:  user.Role,
+    }, nil
 }

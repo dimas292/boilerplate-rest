@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"log"
+	"net/http"
 
 	"github.com/dimas292/url_shortener/pkg/auth"
 	"github.com/dimas292/url_shortener/pkg/config"
@@ -51,13 +52,27 @@ func New(configPath string) *Server {
 	// Gin engine
 	r := gin.Default()
 
-	return &Server{
+	srv := &Server{
 		Config: cfg,
 		DB:     db,
 		Redis:  rdb,
 		JWT:    jwtService,
 		Router: r,
 	}
+
+	// Register health check endpoint
+	srv.registerHealthCheck()
+
+	return srv
+}
+
+// registerHealthCheck registers the GET /health endpoint.
+func (s *Server) registerHealthCheck() {
+	s.Router.GET("/api/v1/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "healthy",
+		})
+	})
 }
 
 // RegisterModules registers feature modules under /api/v1.
