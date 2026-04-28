@@ -1,8 +1,8 @@
 package main
 
 import (
-	authmodule "github.com/dimas292/url_shortener/modules/auth"
-	"github.com/dimas292/url_shortener/pkg/server"
+	authmodule "github.com/dimas292/boilerplate-rest/modules/auth"
+	"github.com/dimas292/boilerplate-rest/pkg/server"
 )
 
 func main() {

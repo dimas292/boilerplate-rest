@@ -1,7 +1,7 @@
 package database
 
 import (
-	"github.com/dimas292/url_shortener/pkg/config"
+	"github.com/dimas292/boilerplate-rest/pkg/config"
 	"github.com/redis/go-redis/v9"
 )
 

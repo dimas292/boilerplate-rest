@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dimas292/url_shortener/pkg/config"
+	"github.com/dimas292/boilerplate-rest/pkg/config"
 	"github.com/golang-jwt/jwt/v5"
 )
 

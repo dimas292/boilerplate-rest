@@ -4,9 +4,9 @@ import (
 	"math"
 	"net/http"
 
-	"github.com/dimas292/url_shortener/pkg/model"
-	"github.com/dimas292/url_shortener/pkg/response"
-	"github.com/dimas292/url_shortener/pkg/service"
+	"github.com/dimas292/boilerplate-rest/pkg/model"
+	"github.com/dimas292/boilerplate-rest/pkg/response"
+	"github.com/dimas292/boilerplate-rest/pkg/service"
 	"github.com/gin-gonic/gin"
 )
 

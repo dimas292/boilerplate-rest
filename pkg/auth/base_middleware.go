@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/dimas292/url_shortener/pkg/response"
+	"github.com/dimas292/boilerplate-rest/pkg/response"
 	"github.com/gin-gonic/gin"
 )
 

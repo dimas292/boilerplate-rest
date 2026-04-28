@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	pkgauth "github.com/dimas292/url_shortener/pkg/auth"
-	"github.com/dimas292/url_shortener/pkg/response"
+	pkgauth "github.com/dimas292/boilerplate-rest/pkg/auth"
+	"github.com/dimas292/boilerplate-rest/pkg/response"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"

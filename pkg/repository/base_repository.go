@@ -3,7 +3,7 @@ package repository
 import (
 	"fmt"
 
-	"github.com/dimas292/url_shortener/pkg/model"
+	"github.com/dimas292/boilerplate-rest/pkg/model"
 	"gorm.io/gorm"
 )
 

@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	pkgauth "github.com/dimas292/url_shortener/pkg/auth"
+	pkgauth "github.com/dimas292/boilerplate-rest/pkg/auth"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"

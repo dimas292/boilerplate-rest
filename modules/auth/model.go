@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"github.com/dimas292/url_shortener/pkg/model"
+	"github.com/dimas292/boilerplate-rest/pkg/model"
 )
 
 // User is the domain model for authentication.

@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/dimas292/url_shortener/pkg/model"
-	"github.com/dimas292/url_shortener/pkg/repository"
+	"github.com/dimas292/boilerplate-rest/pkg/model"
+	"github.com/dimas292/boilerplate-rest/pkg/repository"
 )
 
 // Service defines the generic business-logic contract.
