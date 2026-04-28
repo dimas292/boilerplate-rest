@@ -1,0 +1,15 @@
+app:
+  name: myapp
+  port: ":4444"
+  jwt:
+    secret: "your-secret-key-change-this"
+    expiration: 24
+  db:
+    postgres:
+      dbhost: localhost
+      dbuser: postgres
+      dbpassword: postgres
+      dbname: myapp
+    redis:
+      host: localhost
+      port: 6379

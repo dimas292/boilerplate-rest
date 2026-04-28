@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/dimas292/url_shortener/pkg/auth"
 	"github.com/dimas292/url_shortener/pkg/config"
 	"github.com/dimas292/url_shortener/pkg/database"
 	"github.com/dimas292/url_shortener/pkg/router"
@@ -17,6 +18,7 @@ type Server struct {
 	Config *config.Config
 	DB     *gorm.DB
 	Redis  *redis.Client
+	JWT    *auth.JWTService
 	Router *gin.Engine
 }
 
@@ -33,14 +35,18 @@ func New(configPath string) *Server {
 	if err != nil {
 		log.Fatalf("failed to connect postgres: %v", err)
 	}
-	fmt.Println("✓ postgres connected")
+	fmt.Println("postgres connected")
 
 	// Init Redis
 	rdb, err := database.InitRedis(cfg.App.Db.Redis)
 	if err != nil {
 		log.Fatalf("failed to connect redis: %v", err)
 	}
-	fmt.Println("✓ redis connected")
+	fmt.Println("redis connected")
+
+	// Init JWT
+	jwtService := auth.NewJWTService(cfg.App.Jwt)
+	fmt.Println("jwt initialized")
 
 	// Gin engine
 	r := gin.Default()
@@ -49,6 +55,7 @@ func New(configPath string) *Server {
 		Config: cfg,
 		DB:     db,
 		Redis:  rdb,
+		JWT:    jwtService,
 		Router: r,
 	}
 }

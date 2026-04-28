@@ -12,9 +12,15 @@ type Config struct {
 }
 
 type AppConfig struct {
-	Name string   `yaml:"name"`
-	Port string   `yaml:"port"`
-	Db   DbConfig `yaml:"db"`
+	Name string    `yaml:"name"`
+	Port string    `yaml:"port"`
+	Jwt  JWTConfig `yaml:"jwt"`
+	Db   DbConfig  `yaml:"db"`
+}
+
+type JWTConfig struct {
+	Secret     string `yaml:"secret"`
+	Expiration int    `yaml:"expiration"` // hours
 }
 
 type DbConfig struct {
