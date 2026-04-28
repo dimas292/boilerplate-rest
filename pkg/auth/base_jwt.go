@@ -16,7 +16,7 @@ var (
 
 // Claims represents the JWT payload.
 type Claims struct {
-	UserID uint   `json:"user_id"`
+	UserID string `json:"user_id"`
 	Email  string `json:"email"`
 	Role   string `json:"role"`
 	jwt.RegisteredClaims
@@ -37,7 +37,7 @@ func NewJWTService(cfg config.JWTConfig) *JWTService {
 }
 
 // GenerateToken creates a signed JWT for the given user.
-func (s *JWTService) GenerateToken(userID uint, email, role string) (string, error) {
+func (s *JWTService) GenerateToken(userID string, email, role string) (string, error) {
 	now := time.Now()
 	claims := Claims{
 		UserID: userID,

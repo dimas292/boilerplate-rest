@@ -8,10 +8,10 @@ import (
 // Service defines the generic business-logic contract.
 type Service[T any, PT model.ModelPtr[T]] interface {
 	Create(entity PT) error
-	FindByID(id uint) (PT, error)
+	FindByID(id string) (PT, error)
 	FindAll(page, perPage int) ([]T, int64, error)
 	Update(entity PT) error
-	Delete(id uint) error
+	Delete(id string) error
 }
 
 // BaseService is a generic service that delegates to BaseRepository.
@@ -31,7 +31,7 @@ func (s *BaseService[T, PT]) Create(entity PT) error {
 }
 
 // FindByID delegates to the repository.
-func (s *BaseService[T, PT]) FindByID(id uint) (PT, error) {
+func (s *BaseService[T, PT]) FindByID(id string) (PT, error) {
 	return s.Repo.FindByID(id)
 }
 
@@ -46,6 +46,6 @@ func (s *BaseService[T, PT]) Update(entity PT) error {
 }
 
 // Delete delegates to the repository.
-func (s *BaseService[T, PT]) Delete(id uint) error {
+func (s *BaseService[T, PT]) Delete(id string) error {
 	return s.Repo.Delete(id)
 }

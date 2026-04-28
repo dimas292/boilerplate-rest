@@ -82,15 +82,15 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 	}
 }
 
-// GetUserID extracts the user ID from gin context. Returns 0 if not found.
-func GetUserID(c *gin.Context) uint {
+// GetUserID extracts the user ID from gin context. Returns "" if not found.
+func GetUserID(c *gin.Context) string {
 	id, exists := c.Get(ContextUserID)
 	if !exists {
-		return 0
+		return ""
 	}
-	userID, ok := id.(uint)
+	userID, ok := id.(string)
 	if !ok {
-		return 0
+		return ""
 	}
 	return userID
 }

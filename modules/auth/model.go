@@ -34,7 +34,7 @@ type AuthResponse struct {
 
 // UserResponse is the safe user representation (no password).
 type UserResponse struct {
-	ID    uint   `json:"id"`
+	ID    string `json:"id"`
 	Name  string `json:"name"`
 	Email string `json:"email"`
 	Role  string `json:"role"`

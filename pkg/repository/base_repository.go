@@ -10,10 +10,10 @@ import (
 // Repository defines the generic CRUD contract.
 type Repository[T any, PT model.ModelPtr[T]] interface {
 	Create(entity PT) error
-	FindByID(id uint) (PT, error)
+	FindByID(id string) (PT, error)
 	FindAll(page, perPage int) ([]T, int64, error)
 	Update(entity PT) error
-	Delete(id uint) error
+	Delete(id string) error
 }
 
 // BaseRepository is a generic GORM-backed repository implementing CRUD operations.
@@ -36,9 +36,9 @@ func (r *BaseRepository[T, PT]) Create(entity PT) error {
 }
 
 // FindByID retrieves a single record by primary key.
-func (r *BaseRepository[T, PT]) FindByID(id uint) (PT, error) {
+func (r *BaseRepository[T, PT]) FindByID(id string) (PT, error) {
 	entity := PT(new(T))
-	if err := r.DB.First(entity, id).Error; err != nil {
+	if err := r.DB.First(entity, "id = ?", id).Error; err != nil {
 		return nil, fmt.Errorf("repository find by id: %w", err)
 	}
 	return entity, nil
@@ -70,9 +70,9 @@ func (r *BaseRepository[T, PT]) Update(entity PT) error {
 }
 
 // Delete soft-deletes a record by primary key.
-func (r *BaseRepository[T, PT]) Delete(id uint) error {
+func (r *BaseRepository[T, PT]) Delete(id string) error {
 	entity := PT(new(T))
-	if err := r.DB.Delete(entity, id).Error; err != nil {
+	if err := r.DB.Where("id = ?", id).Delete(entity).Error; err != nil {
 		return fmt.Errorf("repository delete: %w", err)
 	}
 	return nil

@@ -92,9 +92,9 @@ func (s *AuthService) Login(req LoginRequest) (*AuthResponse, error) {
 }
 
 // GetProfile retrieves the current user's profile.
-func (s *AuthService) GetProfile(userID uint) (*UserResponse, error) {
+func (s *AuthService) GetProfile(userID string) (*UserResponse, error) {
 	var user User
-	if err := s.db.First(&user, userID).Error; err != nil {
+	if err := s.db.First(&user, "id = ?", userID).Error; err != nil {
 		return nil, ErrUserNotFound
 	}
 

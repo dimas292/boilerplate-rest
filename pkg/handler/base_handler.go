@@ -3,7 +3,6 @@ package handler
 import (
 	"math"
 	"net/http"
-	"strconv"
 
 	"github.com/dimas292/url_shortener/pkg/model"
 	"github.com/dimas292/url_shortener/pkg/response"
@@ -62,15 +61,15 @@ func (h *BaseHandler[T, PT]) FindAll(c *gin.Context) {
 	})
 }
 
-// FindByID handles GET /:id — get a single record by ID.
+// FindByID handles GET /:id — get a single record by UUID.
 func (h *BaseHandler[T, PT]) FindByID(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
+	id := c.Param("id")
+	if id == "" {
 		response.Error(c, http.StatusBadRequest, "invalid id")
 		return
 	}
 
-	entity, err := h.Service.FindByID(uint(id))
+	entity, err := h.Service.FindByID(id)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "not found")
 		return
@@ -81,13 +80,13 @@ func (h *BaseHandler[T, PT]) FindByID(c *gin.Context) {
 
 // Update handles PUT /:id — update an existing record.
 func (h *BaseHandler[T, PT]) Update(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
+	id := c.Param("id")
+	if id == "" {
 		response.Error(c, http.StatusBadRequest, "invalid id")
 		return
 	}
 
-	entity, err := h.Service.FindByID(uint(id))
+	entity, err := h.Service.FindByID(id)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "not found")
 		return
@@ -108,13 +107,13 @@ func (h *BaseHandler[T, PT]) Update(c *gin.Context) {
 
 // Delete handles DELETE /:id — soft-delete a record.
 func (h *BaseHandler[T, PT]) Delete(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
+	id := c.Param("id")
+	if id == "" {
 		response.Error(c, http.StatusBadRequest, "invalid id")
 		return
 	}
 
-	if err := h.Service.Delete(uint(id)); err != nil {
+	if err := h.Service.Delete(id); err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
