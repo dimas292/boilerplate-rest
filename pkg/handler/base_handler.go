@@ -2,11 +2,12 @@ package handler
 
 import (
 	"math"
-	"net/http"
 
+	"github.com/dimas292/boilerplate-rest/pkg/apperror"
 	"github.com/dimas292/boilerplate-rest/pkg/model"
 	"github.com/dimas292/boilerplate-rest/pkg/response"
 	"github.com/dimas292/boilerplate-rest/pkg/service"
+	"github.com/dimas292/boilerplate-rest/pkg/validator"
 	"github.com/gin-gonic/gin"
 )
 
@@ -25,12 +26,15 @@ func NewBaseHandler[T any, PT model.ModelPtr[T]](svc *service.BaseService[T, PT]
 func (h *BaseHandler[T, PT]) Create(c *gin.Context) {
 	entity := PT(new(T))
 	if err := c.ShouldBindJSON(entity); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
+		response.HandleError(c, err)
 		return
 	}
 
+	// Sanitize all string fields
+	validator.SanitizeStruct(entity)
+
 	if err := h.Service.Create(entity); err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		response.HandleError(c, err)
 		return
 	}
 
@@ -41,13 +45,13 @@ func (h *BaseHandler[T, PT]) Create(c *gin.Context) {
 func (h *BaseHandler[T, PT]) FindAll(c *gin.Context) {
 	var query response.PaginationQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
+		response.HandleError(c, err)
 		return
 	}
 
 	entities, total, err := h.Service.FindAll(query.Page, query.PerPage)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		response.HandleError(c, err)
 		return
 	}
 
@@ -65,13 +69,13 @@ func (h *BaseHandler[T, PT]) FindAll(c *gin.Context) {
 func (h *BaseHandler[T, PT]) FindByID(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		response.Error(c, http.StatusBadRequest, "invalid id")
+		response.HandleError(c, apperror.BadRequest("invalid id"))
 		return
 	}
 
 	entity, err := h.Service.FindByID(id)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, "not found")
+		response.HandleError(c, apperror.NotFound("not found"))
 		return
 	}
 
@@ -82,23 +86,26 @@ func (h *BaseHandler[T, PT]) FindByID(c *gin.Context) {
 func (h *BaseHandler[T, PT]) Update(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		response.Error(c, http.StatusBadRequest, "invalid id")
+		response.HandleError(c, apperror.BadRequest("invalid id"))
 		return
 	}
 
 	entity, err := h.Service.FindByID(id)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, "not found")
+		response.HandleError(c, apperror.NotFound("not found"))
 		return
 	}
 
 	if err := c.ShouldBindJSON(entity); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
+		response.HandleError(c, err)
 		return
 	}
 
+	// Sanitize all string fields
+	validator.SanitizeStruct(entity)
+
 	if err := h.Service.Update(entity); err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		response.HandleError(c, err)
 		return
 	}
 
@@ -109,12 +116,12 @@ func (h *BaseHandler[T, PT]) Update(c *gin.Context) {
 func (h *BaseHandler[T, PT]) Delete(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		response.Error(c, http.StatusBadRequest, "invalid id")
+		response.HandleError(c, apperror.BadRequest("invalid id"))
 		return
 	}
 
 	if err := h.Service.Delete(id); err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		response.HandleError(c, err)
 		return
 	}
 

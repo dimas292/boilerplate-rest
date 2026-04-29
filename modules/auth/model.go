@@ -15,14 +15,14 @@ type User struct {
 
 // RegisterRequest is the DTO for user registration.
 type RegisterRequest struct {
-	Name     string `json:"name" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
+	Name     string `json:"name" binding:"required,notblank,safeinput"`
+	Email    string `json:"email" binding:"required,email,safeinput"`
 	Password string `json:"password" binding:"required,min=6"`
 }
 
 // LoginRequest is the DTO for user login.
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
+	Email    string `json:"email" binding:"required,email,safeinput"`
 	Password string `json:"password" binding:"required"`
 }
 

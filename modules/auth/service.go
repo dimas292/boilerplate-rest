@@ -3,20 +3,20 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
-	"log"
 	"time"
 
+	"github.com/dimas292/boilerplate-rest/pkg/apperror"
 	pkgauth "github.com/dimas292/boilerplate-rest/pkg/auth"
+	"github.com/dimas292/boilerplate-rest/pkg/logger"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 var (
-	ErrEmailAlreadyExists = errors.New("email already registered")
-	ErrInvalidCredentials = errors.New("invalid email or password")
-	ErrUserNotFound       = errors.New("user not found")
+	ErrEmailAlreadyExists = apperror.Conflict("email already registered")
+	ErrInvalidCredentials = apperror.Unauthorized("invalid email or password")
+	ErrUserNotFound       = apperror.NotFound("user not found")
 )
 
 // AuthService handles authentication business logic.
@@ -43,7 +43,7 @@ func (s *AuthService) Register(req RegisterRequest) (*AuthResponse, error) {
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, fmt.Errorf("auth register hash: %w", err)
+		return nil, apperror.Internal("failed to process registration", err)
 	}
 
 	user := User{
@@ -54,13 +54,13 @@ func (s *AuthService) Register(req RegisterRequest) (*AuthResponse, error) {
 	}
 
 	if err := s.db.Create(&user).Error; err != nil {
-		return nil, fmt.Errorf("auth register create: %w", err)
+		return nil, apperror.Internal("failed to create user", err)
 	}
 
 	// Generate JWT
 	token, err := s.jwt.GenerateToken(user.ID, user.Email, user.Role)
 	if err != nil {
-		return nil, err
+		return nil, apperror.Internal("failed to generate token", err)
 	}
 
 	return &AuthResponse{
@@ -76,7 +76,7 @@ func (s *AuthService) Login(req LoginRequest) (*AuthResponse, error) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrInvalidCredentials
 		}
-		return nil, fmt.Errorf("auth login query: %w", err)
+		return nil, apperror.Internal("failed to authenticate", err)
 	}
 
 	// Verify password
@@ -87,7 +87,7 @@ func (s *AuthService) Login(req LoginRequest) (*AuthResponse, error) {
 	// Generate JWT
 	token, err := s.jwt.GenerateToken(user.ID, user.Email, user.Role)
 	if err != nil {
-		return nil, err
+		return nil, apperror.Internal("failed to generate token", err)
 	}
 
 	return &AuthResponse{
@@ -98,53 +98,47 @@ func (s *AuthService) Login(req LoginRequest) (*AuthResponse, error) {
 
 // GetProfile retrieves the current user's profile.
 func (s *AuthService) GetProfile(userID string) (*UserResponse, error) {
-    prefixUser := "cache:user:"
-    keyUser := prefixUser + userID
+	prefixUser := "cache:user:"
+	keyUser := prefixUser + userID
 
-    // Cek Redis dulu (pakai HGetAll karena simpannya Hash)
-    cachedData, err := s.rdb.HGetAll(context.Background(), keyUser).Result()
-    if err == nil && len(cachedData) > 0 {
-        // Cache HIT — return dari Redis
-        return &UserResponse{
-            ID:    fmt.Sprintf("%v", cachedData["id"]),
-            Name:  cachedData["name"],
-            Email: cachedData["email"],
-            Role:  cachedData["role"],
-        }, nil
-    }
- 
-    if err != nil && err != redis.Nil {
-        // Redis error (down/timeout) → log tapi tetap lanjut ke DB
-        log.Printf("warning: redis get profile error: %v", err)
-    }
+	// Check Redis cache first (stored as Hash)
+	cachedData, err := s.rdb.HGetAll(context.Background(), keyUser).Result()
+	if err == nil && len(cachedData) > 0 {
+		// Cache HIT
+		return &UserResponse{
+			ID:    cachedData["id"],
+			Name:  cachedData["name"],
+			Email: cachedData["email"],
+			Role:  cachedData["role"],
+		}, nil
+	}
 
-    // Cache MISS → query DB
-    var user User
-    if err := s.db.First(&user, "id = ?", userID).Error; err != nil {
-        return nil, ErrUserNotFound
-    }
+	if err != nil && err != redis.Nil {
+		// Redis error (down/timeout) — log but continue to DB
+		logger.Warn().Err(err).Str("key", keyUser).Msg("redis get profile failed, falling back to DB")
+	}
 
-    // Simpan ke Redis
-    userMap := map[string]interface{}{
-        "id":    user.ID,
-        "name":  user.Name,
-        "email": user.Email,
-        "role":  user.Role,
-    }
+	// Cache MISS — query DB
+	var user User
+	if err := s.db.First(&user, "id = ?", userID).Error; err != nil {
+		return nil, ErrUserNotFound
+	}
 
-    if err := s.rdb.HSet(context.Background(), keyUser, userMap).Err(); err != nil {
-        // return error, tetap return data dari DB
-        log.Printf("warning: redis set profile error: %v", err)
-    } else {
-        // Set TTL hanya kalau HSet berhasil
-        s.rdb.Expire(context.Background(), keyUser, 30*time.Minute)
-    }
+	// Store in Redis cache
+	userMap := map[string]interface{}{
+		"id":    user.ID,
+		"name":  user.Name,
+		"email": user.Email,
+		"role":  user.Role,
+	}
 
-    // Return data dari DB
-    return &UserResponse{
-        ID:    fmt.Sprintf("%v", user.ID),
-        Name:  user.Name,
-        Email: user.Email,
-        Role:  user.Role,
-    }, nil
+	if err := s.rdb.HSet(context.Background(), keyUser, userMap).Err(); err != nil {
+		logger.Warn().Err(err).Str("key", keyUser).Msg("redis set profile failed")
+	} else {
+		s.rdb.Expire(context.Background(), keyUser, 30*time.Minute)
+	}
+
+	// Return data from DB
+	resp := user.ToResponse()
+	return &resp, nil
 }

@@ -1,8 +1,9 @@
 package repository
 
 import (
-	"fmt"
+	"errors"
 
+	"github.com/dimas292/boilerplate-rest/pkg/apperror"
 	"github.com/dimas292/boilerplate-rest/pkg/model"
 	"gorm.io/gorm"
 )
@@ -30,7 +31,7 @@ func NewBaseRepository[T any, PT model.ModelPtr[T]](db *gorm.DB) *BaseRepository
 // Create inserts a new record.
 func (r *BaseRepository[T, PT]) Create(entity PT) error {
 	if err := r.DB.Create(entity).Error; err != nil {
-		return fmt.Errorf("repository create: %w", err)
+		return apperror.Internal("failed to create record", err)
 	}
 	return nil
 }
@@ -39,7 +40,10 @@ func (r *BaseRepository[T, PT]) Create(entity PT) error {
 func (r *BaseRepository[T, PT]) FindByID(id string) (PT, error) {
 	entity := PT(new(T))
 	if err := r.DB.First(entity, "id = ?", id).Error; err != nil {
-		return nil, fmt.Errorf("repository find by id: %w", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperror.NotFound("record not found")
+		}
+		return nil, apperror.Internal("failed to find record", err)
 	}
 	return entity, nil
 }
@@ -50,12 +54,12 @@ func (r *BaseRepository[T, PT]) FindAll(page, perPage int) ([]T, int64, error) {
 	var total int64
 
 	if err := r.DB.Model(PT(new(T))).Count(&total).Error; err != nil {
-		return nil, 0, fmt.Errorf("repository count: %w", err)
+		return nil, 0, apperror.Internal("failed to count records", err)
 	}
 
 	offset := (page - 1) * perPage
 	if err := r.DB.Offset(offset).Limit(perPage).Find(&entities).Error; err != nil {
-		return nil, 0, fmt.Errorf("repository find all: %w", err)
+		return nil, 0, apperror.Internal("failed to retrieve records", err)
 	}
 
 	return entities, total, nil
@@ -64,7 +68,7 @@ func (r *BaseRepository[T, PT]) FindAll(page, perPage int) ([]T, int64, error) {
 // Update saves changes to an existing record.
 func (r *BaseRepository[T, PT]) Update(entity PT) error {
 	if err := r.DB.Save(entity).Error; err != nil {
-		return fmt.Errorf("repository update: %w", err)
+		return apperror.Internal("failed to update record", err)
 	}
 	return nil
 }
@@ -73,7 +77,7 @@ func (r *BaseRepository[T, PT]) Update(entity PT) error {
 func (r *BaseRepository[T, PT]) Delete(id string) error {
 	entity := PT(new(T))
 	if err := r.DB.Where("id = ?", id).Delete(entity).Error; err != nil {
-		return fmt.Errorf("repository delete: %w", err)
+		return apperror.Internal("failed to delete record", err)
 	}
 	return nil
 }

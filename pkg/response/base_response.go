@@ -1,9 +1,14 @@
 package response
 
 import (
+	"errors"
 	"net/http"
 
+	"github.com/dimas292/boilerplate-rest/pkg/apperror"
+	"github.com/dimas292/boilerplate-rest/pkg/logger"
+	"github.com/dimas292/boilerplate-rest/pkg/validator"
 	"github.com/gin-gonic/gin"
+	govalidator "github.com/go-playground/validator/v10"
 )
 
 // Response is the standardized API response envelope.
@@ -12,6 +17,7 @@ type Response struct {
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 	Meta    *Meta       `json:"meta,omitempty"`
+	Errors  interface{} `json:"errors,omitempty"`
 }
 
 // Meta holds pagination metadata.
@@ -66,5 +72,54 @@ func Error(c *gin.Context, statusCode int, message string) {
 	c.JSON(statusCode, Response{
 		Status:  statusCode,
 		Message: message,
+	})
+}
+
+// HandleError inspects the error type and sends the appropriate response.
+// - AppError: uses its Code and Message, logs internal Err if present.
+// - ValidationErrors: formats field-level errors into a readable map.
+// - Other errors: returns 500 with a generic message, logs the real error.
+func HandleError(c *gin.Context, err error) {
+	// Check for AppError
+	var appErr *apperror.AppError
+	if errors.As(err, &appErr) {
+		// Log internal error if present
+		if appErr.Err != nil {
+			logger.Error().
+				Err(appErr.Err).
+				Int("status", appErr.Code).
+				Str("path", c.FullPath()).
+				Str("method", c.Request.Method).
+				Msg(appErr.Message)
+		}
+		c.JSON(appErr.Code, Response{
+			Status:  appErr.Code,
+			Message: appErr.Message,
+		})
+		return
+	}
+
+	// Check for validation errors
+	var ve govalidator.ValidationErrors
+	if errors.As(err, &ve) {
+		fieldErrors := validator.FormatValidationErrors(err)
+		c.JSON(http.StatusBadRequest, Response{
+			Status:  http.StatusBadRequest,
+			Message: "validation failed",
+			Errors:  fieldErrors,
+		})
+		return
+	}
+
+	// Unknown error — log it, return generic message
+	logger.Error().
+		Err(err).
+		Str("path", c.FullPath()).
+		Str("method", c.Request.Method).
+		Msg("unexpected error")
+
+	c.JSON(http.StatusInternalServerError, Response{
+		Status:  http.StatusInternalServerError,
+		Message: "internal server error",
 	})
 }

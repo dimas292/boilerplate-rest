@@ -1,11 +1,9 @@
 package auth
 
 import (
-	"errors"
-	"net/http"
-
 	pkgauth "github.com/dimas292/boilerplate-rest/pkg/auth"
 	"github.com/dimas292/boilerplate-rest/pkg/response"
+	"github.com/dimas292/boilerplate-rest/pkg/validator"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
@@ -65,17 +63,16 @@ func (m *AuthModule) RegisterRoutes(rg *gin.RouterGroup) {
 func (m *AuthModule) handleRegister(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
+		response.HandleError(c, err)
 		return
 	}
 
+	// Sanitize input
+	validator.SanitizeStruct(&req)
+
 	result, err := m.service.Register(req)
 	if err != nil {
-		if errors.Is(err, ErrEmailAlreadyExists) {
-			response.Error(c, http.StatusConflict, err.Error())
-			return
-		}
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		response.HandleError(c, err)
 		return
 	}
 
@@ -86,17 +83,16 @@ func (m *AuthModule) handleRegister(c *gin.Context) {
 func (m *AuthModule) handleLogin(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
+		response.HandleError(c, err)
 		return
 	}
 
+	// Sanitize input
+	validator.SanitizeStruct(&req)
+
 	result, err := m.service.Login(req)
 	if err != nil {
-		if errors.Is(err, ErrInvalidCredentials) {
-			response.Error(c, http.StatusUnauthorized, err.Error())
-			return
-		}
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		response.HandleError(c, err)
 		return
 	}
 
@@ -109,7 +105,7 @@ func (m *AuthModule) handleProfile(c *gin.Context) {
 
 	profile, err := m.service.GetProfile(userID)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
+		response.HandleError(c, err)
 		return
 	}
 
